@@ -21,6 +21,20 @@ class PyNBT:
     BIG_ENDIAN = 0x00
     LITTLE_ENDIAN = 0x01
     ENDIANNESS = BIG_ENDIAN if sys.byteorder == "big" else LITTLE_ENDIAN
+
+    @staticmethod
+    def pack(format, data):
+        if PyNBT.ENDIANESS == PyNBT.BIG_ENDIAN:
+            return pack('>' + format, data)
+        elif PyNBT.ENDIANESS == PyNBT.LITTLE_ENDIAN:
+            return pack('<' + format, data)
+
+    @staticmethod
+    def unpack(format, data):
+        if PyNBT.ENDIANESS == PyNBT.BIG_ENDIAN:
+            return unpack('>' + format, data)
+        elif PyNBT.ENDIANESS == PyNBT.LITTLE_ENDIAN:
+            return unpack('<' + format, data)
     
     @staticmethod
     def checkLength(data: bytes, expect: int):
@@ -28,19 +42,11 @@ class PyNBT:
         assert (length == expect), 'Expected ' + str(expect) + 'bytes, got ' + str(length)
         
     @staticmethod
-    def sign(num, bitlen):
-        bits = bitlen - 1
-        x = num & (2 ** bitlen - 1)
-        a = x & (2 ** bits - 1)
-        b = x & (2 ** bits)
-        return (~(2 ** bits - 1) & (-1) | a) if b else a
-        
-    @staticmethod
     def signByte(value: int):
         if calcsize('P') == 8:
-            return PyNBT.sign(value, 56)
+            return value << 56 >> 56
         else:
-            return PyNBT.sign(value, 24)
+            return value << 24 >> 24
         
     @staticmethod
     def unsignByte(value: int):
@@ -49,9 +55,9 @@ class PyNBT:
     @staticmethod
     def signShort(value: int):
         if calcsize('P') == 8:
-            return PyNBT.sign(value, 48)
+            return value << 48 >> 48
         else:
-            return PyNBT.sign(value, 16)
+            return value << 16 >> 16
 
     @staticmethod
     def unsignShort(value: int):
@@ -59,7 +65,10 @@ class PyNBT:
     
     @staticmethod
     def signInt(value: int):
-        return PyNBT.sign(value, 32)
+        if calcsize('P') == 8:
+            return value << 32 >> 32
+        else:
+            return value
 
     @staticmethod
     def unsignInt(value: int):
@@ -68,24 +77,24 @@ class PyNBT:
     @staticmethod
     def readTriad(data: bytes) -> int:
         PyNBT.checkLength(data, 3)
-        return unpack('>L', b'\x00' + data)[0]
+        return PyNBT.unpack('L', b'\x00' + data)[0]
     
     @staticmethod
     def writeTriad(value: int) -> bytes:
-        return pack('>L', value)[1:]
+        return PyNBT.pack('L', value)[1:]
     
     @staticmethod
     def readLTriad(data: bytes) -> int:
         PyNBT.checkLength(data, 3)
-        return unpack('<L', data + b'\x00')[0]
+        return PyNBT.unpack('L', data + b'\x00')[0]
 
     @staticmethod
     def writeLTriad(value: int) -> bytes:
-        return pack('<L', value)[0:-1]
+        return PyNBT.pack('L', value)[0:-1]
     
     @staticmethod
     def readBool(data: bytes) -> bool:
-        return unpack('?', data)[0]
+        return PyNBT.unpack('?', data)[0]
 
     @staticmethod
     def writeBool(value: bool) -> bytes:
@@ -108,7 +117,7 @@ class PyNBT:
     @staticmethod
     def readShort(data: bytes) -> int:
         PyNBT.checkLength(data, 2)
-        return unpack('>H', data)[0]
+        return PyNBT.unpack('H', data)[0]
     
     @staticmethod
     def readSignedShort(data: bytes) -> int:
@@ -117,12 +126,12 @@ class PyNBT:
 
     @staticmethod
     def writeShort(value: int) -> bytes:
-        return pack('>H', value)
+        return PyNBT.pack('H', value)
     
     @staticmethod
     def readLShort(data: bytes) -> int:
         PyNBT.checkLength(data, 2)
-        return unpack('<H', data)[0]
+        return PyNBT.unpack('H', data)[0]
     
     @staticmethod
     def readSignedLShort(data: bytes) -> int:
@@ -131,38 +140,30 @@ class PyNBT:
 
     @staticmethod
     def writeLShort(value: int) -> bytes:
-        return pack('<H', value)
+        return PyNBT.pack('H', value)
     
     @staticmethod
     def readInt(data: bytes) -> int:
         PyNBT.checkLength(data, 4)
-        if calcsize('P') == 8:
-            value = PyNBT.signInt(unpack('>L', data)[0])
-        else:
-            value = unpack('>L', data)[0]
-        return value
+        return PyNBT.signInt(PyNBT.unpack('L', data)[0])
 
     @staticmethod
     def writeInt(value: int) -> bytes:
-        return pack('>L', value)
+        return PyNBT.pack('L', value)
 
     @staticmethod
     def readLInt(data: bytes) -> int:
         PyNBT.checkLength(data, 4)
-        if calcsize('P') == 8:
-            value = PyNBT.signInt(unpack('<L', data)[0])
-        else:
-            value = unpack('<L', data)[0]
-        return value
+        return PyNBT.signInt(PyNBT.unpack('L', data)[0])
 
     @staticmethod
     def writeLInt(value: int) -> bytes:
-        return pack('<L', value)
+        return PyNBT.pack('L', value)
     
     @staticmethod
     def readFloat(data: bytes) -> int:
         PyNBT.checkLength(data, 4)
-        return unpack('>f', data)[0]
+        return PyNBT.unpack('f', data)[0]
     
     @staticmethod
     def readRoundedFloat(data, accuracy):
@@ -170,12 +171,12 @@ class PyNBT:
 
     @staticmethod
     def writeFloat(value: int) -> bytes:
-        return pack('>f', value)
+        return PyNBT.pack('f', value)
 
     @staticmethod
     def readLFloat(data: bytes) -> int:
         PyNBT.checkLength(data, 4)
-        return unpack('<f', data)[0]
+        return PyNBT.unpack('f', data)[0]
     
     @staticmethod
     def readRoundedLFloat(data, accuracy):
@@ -183,7 +184,7 @@ class PyNBT:
 
     @staticmethod
     def writeLFloat(value: int) -> bytes:
-        return pack('<f', value)
+        return PyNBT.pack('f', value)
     
     @staticmethod
     def printFloat(value):
@@ -192,39 +193,39 @@ class PyNBT:
     @staticmethod
     def readDouble(data: bytes) -> int:
         PyNBT.checkLength(data, 8)
-        return unpack('>d', data)[0]
+        return PyNBT.unpack('d', data)[0]
 
     @staticmethod
     def writeDouble(value: int) -> bytes:
-        return pack('>d', value)
+        return PyNBT.pack('d', value)
 
     @staticmethod
     def readLDouble(data: bytes) -> int:
         PyNBT.checkLength(data, 8)
-        return unpack('<d', data)[0]
+        return PyNBT.unpack('d', data)[0]
 
     @staticmethod
     def writeLDouble(value: int) -> bytes:
-        return pack('<d', value)
+        return PyNBT.pack('d', value)
     
     @staticmethod
     def readLong(data: bytes) -> int:
         PyNBT.checkLength(data, 8)
-        return unpack('>Q', data)[0]
+        return PyNBT.unpack('Q', data)[0]
     
     @staticmethod
     def writeLong(value: int) -> bytes:
-        return pack('>Q', value)
+        return PyNBT.pack('Q', value)
 
     @staticmethod
     def readLLong(data: bytes) -> int:
         PyNBT.checkLength(data, 8)
-        return unpack('<Q', data)[0]
+        return PyNBT.unpack('Q', data)[0]
 
     @staticmethod
     def writeLLong(value: int) -> bytes:
-        return pack('<Q', value)
- 
+        return PyNBT.pack('Q', value)
+    
     @staticmethod
     def loadFile(filename):
         if os.path.isfile(filename):
@@ -247,7 +248,7 @@ class PyNBT:
         if not tagType == PyNBT.TAG_END:
             tagName = PyNBT.readType(fp, PyNBT.TAG_STRING)
             tagData = PyNBT.readType(fp, tagType)
-            tree.update({'type': tagType, 'name': tagName, 'value': tagData})
+            tree[tagName.decode("utf-8")] = {'type': tagType, 'name': tagName, 'value': tagData}
             return True
         else:
             return False
